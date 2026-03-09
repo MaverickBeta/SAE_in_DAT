@@ -20,7 +20,12 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 # Import model classes that need to be available globally
 from timm.models.resnet import resnet50 as ResNet50ImageNet
 from timm.models.resnet import wide_resnet50_2 as WideResNet50x2ImageNet
-from timm.models.resnet import wide_resnet50_4 as WideResNet50x4ImageNet
+from timm.models.resnet import wide_resnet50_2 as WideResNet50x2ImageNet
+try:
+    from timm.models.resnet import wide_resnet50_4 as WideResNet50x4ImageNet
+except ImportError:
+    WideResNet50x4ImageNet = None
+
 from timm.models.convnext import convnext_small, convnext_base, convnext_tiny, convnext_large
 from torch import nn
 

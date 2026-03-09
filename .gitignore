@@ -1,0 +1,67 @@
+cat > .gitignore << 'EOF'
+# === 大文件/数据文件（你的 acts_*.npz）===
+*.npz
+*.npy
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+*.safetensors
+*.pt
+*.pth
+*.ckpt
+*.bin
+
+# === 模型检查点和数据集 ===
+checkpoints/
+data/
+datasets/
+
+# === 日志和临时输出 ===
+slurm_log/
+logs/
+*.log
+outputs/
+results/
+wandb/
+*.png      # 测试生成的图片（test_plot_v2.png）
+*.jpg
+*.jpeg
+
+# === 外部依赖/子模块（不是你写的代码）===
+pytorch-fid/
+pytorch-image-models/
+InNOutRobustness/
+experiments/
+
+# === Python 缓存（会自动生成）===
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# === IDE 和系统文件 ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+EOF

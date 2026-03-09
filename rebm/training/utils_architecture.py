@@ -163,11 +163,12 @@ def create_convnext_model(
         raise ValueError(f"Unsupported ConvNeXt model type: {model_type}")
 
     # Create base model
+    kwargs = {}
+    
     model = model_creators[model_type](
         pretrained=False,
         num_classes=num_classes,
-        normalize_input=normalize_input,
-        use_layernorm=use_layernorm,
+        **kwargs
     )
 
     # Replace patch stem with ConvStem if specified
@@ -175,6 +176,8 @@ def create_convnext_model(
         if model_type not in convstem_configs:
             raise ValueError(f"ConvStem not configured for {model_type}")
         model.stem = convstem_configs[model_type]()
+
+    model.normalize_input = normalize_input
 
     return model
 

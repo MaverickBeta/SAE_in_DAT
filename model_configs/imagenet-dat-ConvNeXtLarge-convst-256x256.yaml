@@ -2,7 +2,8 @@
 
 method: "dat"
 dataset: imagenet
-checkpoint: wandb/robust-ebms-2/wandb/run-20251030_060911-vjpuxho0/files/model_bestfid.pth
+image_size: 256
+checkpoint: checkpoints/convnext_large_cvst_robust.pt
 model_type: convnext_large
 train_cmd: >
   python -m rebm.training.train

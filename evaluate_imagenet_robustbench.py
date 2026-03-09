@@ -169,20 +169,37 @@ def main():
     print("Model loaded and set to eval mode")
 
     # Set device and enable multi-GPU if available
-    device = torch.device(args.device if torch.cuda.is_available() else "cpu")
+    RANK = int(os.environ.get("RANK", 0))
+    WORLD_SIZE = int(os.environ.get("WORLD_SIZE", 1))
 
-    # Move model to device first
+    device = torch.device(args.device if torch.cuda.is_available() else "cpu")
     model = model.to(device)
 
-    # Enable multi-GPU if available
-    if torch.cuda.is_available() and torch.cuda.device_count() > 1:
-        print(f"Using {torch.cuda.device_count()} GPUs")
+    # Enable DP only if NO external parallel splitting
+    if WORLD_SIZE == 1 and torch.cuda.is_available() and torch.cuda.device_count() > 1:
+        print(f"Using {torch.cuda.device_count()} GPUs (Fallback DP)")
         model = torch.nn.DataParallel(model)
     else:
-        print(f"Using single device: {device}")
+        print(f"Using single device: {device} (External Rank {RANK}/{WORLD_SIZE})")
 
     # Convert threat model string to enum
     threat_model = ThreatModel(args.threat_model)
+
+    if WORLD_SIZE > 1:
+        import math
+        import robustbench.eval
+        import robustbench.data
+        original_load_imagenet = robustbench.data.load_imagenet
+
+        def custom_load_imagenet(*m_args, **m_kwargs):
+            x, y = original_load_imagenet(*m_args, **m_kwargs)
+            chunk_size = math.ceil(len(x) / WORLD_SIZE)
+            start = RANK * chunk_size
+            end = min(start + chunk_size, len(x))
+            print(f"[Rank {RANK}/{WORLD_SIZE}] Slicing dataset from {start} to {end} (Total {end - start} examples)")
+            return x[start:end], y[start:end]
+
+        robustbench.eval.load_imagenet = custom_load_imagenet
 
     # Create preprocessing function
     preprocessing = get_preprocessing_function(args.img_size)
@@ -191,24 +208,28 @@ def main():
     trans = preprocessing
 
     # Compute clean accuracy on full validation set
-    print("\nComputing clean accuracy on full validation set...")
-    val_dir = os.path.join(args.data_dir, 'val')
-    val_dataset = datasets.ImageFolder(val_dir, transform=trans)
-    val_loader = DataLoader(val_dataset, batch_size=args.batch_size,
-                           shuffle=False, num_workers=4, pin_memory=True)
+    clean_acc_full = 0.0
+    if WORLD_SIZE == 1:
+        print("\nComputing clean accuracy on full validation set...")
+        val_dir = os.path.join(args.data_dir, 'val')
+        val_dataset = datasets.ImageFolder(val_dir, transform=trans)
+        val_loader = DataLoader(val_dataset, batch_size=args.batch_size,
+                               shuffle=False, num_workers=16, pin_memory=True, prefetch_factor=2)
 
-    correct = 0
-    total = 0
-    with torch.no_grad():
-        for images, labels in val_loader:
-            images, labels = images.to(device), labels.to(device)
-            outputs = model(images)
-            _, predicted = outputs.max(1)
-            total += labels.size(0)
-            correct += predicted.eq(labels).sum().item()
+        correct = 0
+        total = 0
+        with torch.no_grad():
+            for images, labels in val_loader:
+                images, labels = images.to(device), labels.to(device)
+                outputs = model(images)
+                _, predicted = outputs.max(1)
+                total += labels.size(0)
+                correct += predicted.eq(labels).sum().item()
 
-    clean_acc_full = correct / total
-    print(f"Clean accuracy (full validation set): {clean_acc_full:.2%}")
+        clean_acc_full = correct / total
+        print(f"Clean accuracy (full validation set): {clean_acc_full:.2%}")
+    else:
+        print("\nSkipping full validation set eval for distributed workers (to save I/O and time).")
 
     print("\nStarting adversarial evaluation:")
     print("  Dataset: ImageNet")
