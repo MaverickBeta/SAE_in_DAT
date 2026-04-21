@@ -14,11 +14,15 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "pytorch-image-models
 
 import robustbench
 import torch
-from robustbench.eval import benchmark
+try:
+    from robustbench.eval import benchmark as rb_benchmark
+except Exception:
+    rb_benchmark = None
 from robustbench.model_zoo.architectures.utils_architectures import (
     normalize_model,
 )
 from robustbench.model_zoo.enums import BenchmarkDataset, ThreatModel
+from robustbench.utils import clean_accuracy
 from timm.models import create_model
 from timm.models.resnet import Bottleneck, _create_resnet
 from torch.utils.data import DataLoader
@@ -80,6 +84,57 @@ def load_custom_model(checkpoint_path, architecture="resnet50"):
 
     # Load checkpoint using shared utility (handles prefixes + DDP)
     return load_checkpoint(model, checkpoint_path, weights_only=False)
+
+
+def fallback_benchmark(
+    model,
+    dataset,
+    threat_model,
+    eps,
+    n_examples,
+    data_dir,
+    batch_size,
+    device,
+    preprocessing,
+):
+    """Minimal fallback when robustbench.eval.benchmark is unavailable."""
+    if dataset != BenchmarkDataset.imagenet:
+        raise NotImplementedError("Fallback benchmark currently supports ImageNet only")
+    if threat_model not in {ThreatModel.L2, ThreatModel.Linf}:
+        raise NotImplementedError("Fallback benchmark currently supports L2/Linf only")
+
+    x_test, y_test = robustbench.data.load_imagenet(
+        n_examples=n_examples,
+        data_dir=data_dir,
+        prepr=preprocessing,
+    )
+
+    clean_acc = clean_accuracy(
+        model,
+        x_test,
+        y_test,
+        batch_size=batch_size,
+        device=device,
+    )
+
+    from autoattack import AutoAttack
+
+    adversary = AutoAttack(
+        model,
+        norm=threat_model.value,
+        eps=eps,
+        version="standard",
+        device=device,
+    )
+    x_adv = adversary.run_standard_evaluation(x_test, y_test, bs=batch_size)
+    robust_acc = clean_accuracy(
+        model,
+        x_adv,
+        y_test,
+        batch_size=batch_size,
+        device=device,
+    )
+    return clean_acc, robust_acc
 
 
 def main():
@@ -241,17 +296,31 @@ def main():
     print(f"  Preprocessing: {preprocessing_name}")
 
     # Run evaluation with preprocessing specified
-    _, robust_acc = benchmark(
-        model=model,
-        dataset=BenchmarkDataset.imagenet,
-        threat_model=threat_model,
-        eps=args.eps,
-        n_examples=args.n_examples,
-        data_dir=args.data_dir,
-        batch_size=args.batch_size,
-        device=device,
-        preprocessing=preprocessing,  # Use specified preprocessing (string or function)
-    )
+    if rb_benchmark is not None:
+        _, robust_acc = rb_benchmark(
+            model=model,
+            dataset=BenchmarkDataset.imagenet,
+            threat_model=threat_model,
+            eps=args.eps,
+            n_examples=args.n_examples,
+            data_dir=args.data_dir,
+            batch_size=args.batch_size,
+            device=device,
+            preprocessing=preprocessing,
+        )
+    else:
+        print("robustbench.eval.benchmark is unavailable; using fallback AutoAttack path.")
+        _, robust_acc = fallback_benchmark(
+            model=model,
+            dataset=BenchmarkDataset.imagenet,
+            threat_model=threat_model,
+            eps=args.eps,
+            n_examples=args.n_examples,
+            data_dir=args.data_dir,
+            batch_size=args.batch_size,
+            device=device,
+            preprocessing=preprocessing,
+        )
 
     print("\n" + "=" * 50)
     print("EVALUATION RESULTS")

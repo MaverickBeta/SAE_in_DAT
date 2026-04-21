@@ -15,7 +15,25 @@ cat > .gitignore << 'EOF'
 # === 模型检查点和数据集 ===
 checkpoints/
 data/
+data_SAE/
 datasets/
+
+# === SAE 实验输出（大文件/结果，保留代码文件）===
+SAE/project/checkpoints/
+SAE/project/wandb/
+SAE/results*/
+SAE/align_steering/archive/
+SAE/align_steering/sae_stat_npz_json/
+SAE/align_steering/adv_samples*/
+SAE/align_steering/sae_stat_results.json
+SAE/new_model/adv_samples*/
+SAE/new_model/results/
+SAE/new_model/*.log
+SAE/scripts_untar/runs/
+SAE/scripts_untar/*results.json
+SAE/**/eval_results/
+SAE/slurm_log/
+SAE/*/slurm_log/
 
 # === 日志和临时输出 ===
 slurm_log/
