@@ -6,7 +6,7 @@ import sys
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
-os.environ.setdefault("CUDA_VISIBLE_DEVICES", "1")
+os.environ.setdefault("CUDA_VISIBLE_DEVICES", "0")
 
 import matplotlib.pyplot as plt
 import numpy as np

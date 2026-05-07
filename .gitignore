@@ -1,4 +1,3 @@
-cat > .gitignore << 'EOF'
 # === 大文件/数据文件（你的 acts_*.npz）===
 *.npz
 *.npy
@@ -22,6 +21,7 @@ datasets/
 SAE/project/checkpoints/
 SAE/project/wandb/
 SAE/results*/
+SAE/adversarial_samples/
 SAE/align_steering/archive/
 SAE/align_steering/sae_stat_npz_json/
 SAE/align_steering/adv_samples*/
@@ -42,7 +42,8 @@ logs/
 outputs/
 results/
 wandb/
-*.png      # 测试生成的图片（test_plot_v2.png）
+# 测试生成的图片（test_plot_v2.png）
+*.png
 *.jpg
 *.jpeg
 
@@ -82,4 +83,3 @@ wheels/
 *~
 .DS_Store
 Thumbs.db
-EOF

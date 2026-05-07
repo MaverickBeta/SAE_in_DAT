@@ -1,0 +1,8 @@
+# 忽略 archive 中的大文件/实验结果，保留代码脚本
+*.png
+*.npz
+*.jpg
+*.jpeg
+*.log
+*.json
+adv_samples*/

@@ -34,14 +34,20 @@ def resolve_train_config(args):
     resolved_d_lat = resolved_d_in * args.expansion_rate
 
     if args.data_path is None:
-        stage_dir = f"/Data_share/hongyi/DAT/data_SAE/imagenet_small_features/stage{args.stage_idx}"
-        if os.path.isdir(stage_dir):
-            resolved_data_path = stage_dir
+        # Prefer merged file if available (faster loading, cleaner memory)
+        if args.stage_idx == 3:
+            merged_path = "/Data_share/hongyi/DAT/data_SAE/imagenet_small_features_merged_stage3.pt"
         else:
-            if args.stage_idx == 3:
-                resolved_data_path = "/Data_share/hongyi/DAT/data_SAE/imagenet_small_features_merged.pt"
+            merged_path = f"/Data_share/hongyi/DAT/data_SAE/imagenet_small_features_stage{args.stage_idx}_merged.pt"
+
+        if os.path.isfile(merged_path):
+            resolved_data_path = merged_path
+        else:
+            stage_dir = f"/Data_share/hongyi/DAT/data_SAE/imagenet_small_features/stage{args.stage_idx}"
+            if os.path.isdir(stage_dir):
+                resolved_data_path = stage_dir
             else:
-                resolved_data_path = f"/Data_share/hongyi/DAT/data_SAE/imagenet_small_features_stage{args.stage_idx}_merged.pt"
+                resolved_data_path = merged_path
     else:
         resolved_data_path = args.data_path
 
@@ -147,10 +153,11 @@ def train(args):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device} (mapped to physical GPU {args.gpu_id})")
 
+    suffix_tag = f"_{args.out_suffix}" if getattr(args, "out_suffix", "") else ""
     save_dir = os.path.join(
         "checkpoints",
         f"stage{args.stage_idx}",
-        f"k{args.k}_exp{args.expansion_rate}"
+        f"k{args.k}_exp{args.expansion_rate}{suffix_tag}"
     )
     os.makedirs(save_dir, exist_ok=True)
 
@@ -366,7 +373,7 @@ if __name__ == "__main__":
     parser.add_argument("--expansion_rate", type=int, default=32)
 
     parser.add_argument("--k", type=int, default=64)
-    parser.add_argument("--gpu_id", type=int, default=2)
+    parser.add_argument("--gpu_id", type=int, default=7)
     parser.add_argument("--batch_size", type=int, default=4096)
     parser.add_argument("--steps", type=int, default=50000)
     parser.add_argument("--lr", type=float, default=3e-4)
@@ -383,6 +390,7 @@ if __name__ == "__main__":
     parser.add_argument("--resample_every", type=int, default=5000, help="Resample dead neurons every N steps. 0 to disable.")
     parser.add_argument("--resample_noise_scale", type=float, default=0.20)
     parser.add_argument("--max_resample_ratio", type=float, default=0.50, help="Max fraction of dead neurons to resample at once")
+    parser.add_argument("--out_suffix", type=str, default="merged", help="Optional suffix appended to output directory name (e.g. 'merged' -> k64_exp16_merged)")
 
     args = parser.parse_args()
     train(args)
